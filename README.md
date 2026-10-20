@@ -4,7 +4,7 @@
 
 AudioCycle is an audio converter in development with a simple goal: make it easy to convert audio files and extract audio from video files into a wide range of useful audio formats.
 
-The aim is broad compatibility—supporting as many input formats as practical and producing audio that plays in VLC, at a minimum.
+The aim is broad compatibility, supporting as many input formats as practical and producing audio that plays in VLC, at a minimum.
 
 ## Project Status
 
