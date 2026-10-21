@@ -1,11 +1,7 @@
 package com.gumby.audiocycle.util
 
-import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
 import com.gumby.audiocycle.model.ConversionFormat
@@ -62,48 +58,16 @@ object FileUtil {
         return File(cacheDir, "output_${timeStamp}.${format.extension}")
     }
 
-    suspend fun saveToPublicMusicFolder(
+    suspend fun writeTempToDestinationUri(
         context: Context,
         tempOutputFile: File,
-        baseName: String,
-        format: ConversionFormat
-    ): Uri = withContext(Dispatchers.IO) {
-        val cleanBaseName = baseName.substringBeforeLast(".")
-            .replace("[^a-zA-Z0-9._-]".toRegex(), "_")
-        val outputFileName = "${cleanBaseName}.${format.extension}"
-
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Audio.Media.DISPLAY_NAME, outputFileName)
-            put(MediaStore.Audio.Media.MIME_TYPE, format.mimeType)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Audio.Media.RELATIVE_PATH, "${Environment.DIRECTORY_MUSIC}/AudioCycle")
-                put(MediaStore.Audio.Media.IS_PENDING, 1)
-            }
-        }
-
-        val resolver = context.contentResolver
-        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        } else {
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-        }
-
-        val itemUri = resolver.insert(collection, contentValues)
-            ?: throw IllegalStateException("Failed to create MediaStore entry")
-
-        resolver.openOutputStream(itemUri)?.use { outputStream ->
+        destinationUri: Uri
+    ) = withContext(Dispatchers.IO) {
+        context.contentResolver.openOutputStream(destinationUri, "w")?.use { outputStream ->
             tempOutputFile.inputStream().use { inputStream ->
                 inputStream.copyTo(outputStream)
             }
-        } ?: throw IllegalStateException("Failed to write to MediaStore output stream")
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            contentValues.clear()
-            contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
-            resolver.update(itemUri, contentValues, null, null)
-        }
-
-        itemUri
+        } ?: throw IllegalStateException("Failed to open output stream for destination")
     }
 
     fun getShareableUri(context: Context, file: File): Uri {
