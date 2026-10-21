@@ -18,6 +18,7 @@ class FFmpegConverter {
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val commandList = buildFFmpegCommandList(inputFilePath, outputFilePath, options)
         val commandArray = commandList.toTypedArray()
+        val startTimeMs = System.currentTimeMillis()
 
         suspendCancellableCoroutine { continuation ->
             val listener = object : RxFFmpegInvoke.IFFmpegListener {
@@ -29,8 +30,8 @@ class FFmpegConverter {
 
                 override fun onProgress(progress: Int, progressTime: Long) {
                     val percent = progress.coerceIn(0, 100)
-                    val timeSec = progressTime / 1000
-                    onProgress(percent, timeSec, "Converting...")
+                    val realElapsedSec = (System.currentTimeMillis() - startTimeMs) / 1000
+                    onProgress(percent, realElapsedSec, "Converting...")
                 }
 
                 override fun onCancel() {

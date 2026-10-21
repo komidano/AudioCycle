@@ -3,6 +3,8 @@ package com.gumby.audiocycle
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,7 +13,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -20,19 +22,28 @@ import com.gumby.audiocycle.model.ConversionFormat
 import com.gumby.audiocycle.model.ConversionState
 import com.gumby.audiocycle.util.FileUtil
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class FirstFragment : Fragment() {
 
     private var _binding: FragmentFirstBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: MainViewModel by viewModels()
+    private val viewModel: MainViewModel by activityViewModels()
 
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
             viewModel.selectFile(requireContext(), it)
+        }
+    }
+
+    private val createDocumentLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri: Uri? ->
+        uri?.let { destinationUri ->
+            viewModel.startConversion(requireContext(), destinationUri)
         }
     }
 
@@ -54,12 +65,16 @@ class FirstFragment : Fragment() {
     }
 
     private fun setupUIListeners() {
-        binding.btnSelectFile.setOnClickListener {
-            filePickerLauncher.launch(arrayOf("audio/*", "video/*", "*/*"))
-        }
-
         binding.btnStartConversion.setOnClickListener {
-            viewModel.startConversion(requireContext())
+            val userFileName = binding.edtOutputFileName.text.toString().trim()
+            if (userFileName.isNotBlank()) {
+                viewModel.updateOutputFileName(userFileName)
+            }
+            val options = viewModel.selectedOptions.value ?: return@setOnClickListener
+            val targetName = options.outputFileName.ifBlank {
+                "converted.${options.targetFormat.extension}"
+            }
+            createDocumentLauncher.launch(targetName)
         }
 
         binding.btnCancelConversion.setOnClickListener {
@@ -69,10 +84,21 @@ class FirstFragment : Fragment() {
         binding.btnDismissError.setOnClickListener {
             viewModel.resetState()
         }
+
+        binding.edtOutputFileName.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val input = s?.toString() ?: ""
+                if (input.isNotBlank() && viewModel.selectedOptions.value?.outputFileName != input) {
+                    viewModel.updateOutputFileName(input)
+                }
+            }
+        })
     }
 
     private fun setupDropdowns() {
-        val formats = ConversionFormat.values()
+        val formats = ConversionFormat.entries
         val formatNames = formats.map { it.displayName }
         val formatAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, formatNames)
         binding.dropdownTargetFormat.setAdapter(formatAdapter)
@@ -81,6 +107,8 @@ class FirstFragment : Fragment() {
         binding.dropdownTargetFormat.setOnItemClickListener { _, _, position, _ ->
             val selectedFormat = formats[position]
             viewModel.updateTargetFormat(selectedFormat)
+
+            binding.edtOutputFileName.setText(viewModel.selectedOptions.value?.outputFileName ?: "")
 
             val isLossless = selectedFormat == ConversionFormat.WAV || selectedFormat == ConversionFormat.FLAC
             binding.layoutBitrate.isVisible = !isLossless
@@ -121,15 +149,25 @@ class FirstFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
+                    viewModel.filePickerEvents.collect {
+                        filePickerLauncher.launch(arrayOf("audio/*", "video/*", "*/*"))
+                    }
+                }
+
+                launch {
                     viewModel.selectedOptions.collect { options ->
                         if (options == null) {
-                            binding.txtFileName.text = "No file selected"
+                            binding.txtFileName.text = "No file selected — tap 'Choose File' below"
                             binding.txtFileSize.isVisible = false
                             binding.cardSettings.isVisible = false
                         } else {
                             binding.txtFileName.text = options.sourceFileName
                             binding.txtFileSize.text = FileUtil.formatFileSize(options.sourceFileSize)
                             binding.txtFileSize.isVisible = options.sourceFileSize > 0
+
+                            if (binding.edtOutputFileName.text.toString() != options.outputFileName) {
+                                binding.edtOutputFileName.setText(options.outputFileName)
+                            }
 
                             if (viewModel.conversionState.value is ConversionState.Idle) {
                                 binding.cardSettings.isVisible = true
@@ -153,7 +191,6 @@ class FirstFragment : Fragment() {
                 binding.cardProgress.isVisible = false
                 binding.cardResult.isVisible = false
                 binding.cardError.isVisible = false
-                binding.btnSelectFile.isEnabled = true
                 binding.btnStartConversion.isEnabled = true
                 binding.cardSettings.isVisible = viewModel.selectedOptions.value != null
             }
@@ -162,7 +199,6 @@ class FirstFragment : Fragment() {
                 binding.cardResult.isVisible = false
                 binding.cardError.isVisible = false
                 binding.cardSettings.isVisible = false
-                binding.btnSelectFile.isEnabled = false
 
                 binding.txtProgressTitle.text = "Preparing media file..."
                 binding.progressIndicator.isIndeterminate = true
@@ -175,7 +211,6 @@ class FirstFragment : Fragment() {
                 binding.cardResult.isVisible = false
                 binding.cardError.isVisible = false
                 binding.cardSettings.isVisible = false
-                binding.btnSelectFile.isEnabled = false
 
                 binding.txtProgressTitle.text = "Converting Audio..."
                 binding.progressIndicator.isIndeterminate = false
@@ -184,7 +219,7 @@ class FirstFragment : Fragment() {
 
                 val minutes = state.timeElapsedSec / 60
                 val seconds = state.timeElapsedSec % 60
-                binding.txtTimeElapsed.text = String.format("Time elapsed: %02d:%02d", minutes, seconds)
+                binding.txtTimeElapsed.text = String.format(Locale.US, "Time elapsed: %02d:%02d", minutes, seconds)
                 binding.txtLogSnippet.text = state.logSnippet
             }
             is ConversionState.Success -> {
@@ -192,16 +227,11 @@ class FirstFragment : Fragment() {
                 binding.cardSettings.isVisible = false
                 binding.cardError.isVisible = false
                 binding.cardResult.isVisible = true
-                binding.btnSelectFile.isEnabled = true
 
                 binding.txtResultFileName.text = state.outputFileName
 
-                binding.btnPlayResult.setOnClickListener {
-                    playAudioFile(state.outputFileUri, state.outputFormat.mimeType)
-                }
-
-                binding.btnShareResult.setOnClickListener {
-                    shareAudioFile(state.outputFileUri, state.outputFormat.mimeType)
+                binding.btnViewFile.setOnClickListener {
+                    viewFile(state.outputFileUri, state.outputFormat.mimeType)
                 }
             }
             is ConversionState.Error -> {
@@ -209,35 +239,21 @@ class FirstFragment : Fragment() {
                 binding.cardSettings.isVisible = false
                 binding.cardResult.isVisible = false
                 binding.cardError.isVisible = true
-                binding.btnSelectFile.isEnabled = true
 
                 binding.txtErrorDetails.text = state.message
             }
         }
     }
 
-    private fun playAudioFile(uri: Uri, mimeType: String) {
+    private fun viewFile(uri: Uri, mimeType: String) {
         try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, mimeType)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            startActivity(Intent.createChooser(intent, "Play Audio with..."))
+            startActivity(Intent.createChooser(intent, "View / Open File with..."))
         } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Unable to open audio player: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun shareAudioFile(uri: Uri, mimeType: String) {
-        try {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = mimeType
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            startActivity(Intent.createChooser(intent, "Share Audio File"))
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Unable to share file: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Unable to open file: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
         }
     }
 

@@ -11,7 +11,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:paddingBottom="80dp">
 
         <!-- Header Title Card -->
         <com.google.android.material.card.MaterialCardView
@@ -63,7 +64,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Select Source File"
+                    android:text="Selected Source File"
                     android:textAppearance="?attr/textAppearanceTitleMedium"
                     android:textStyle="bold" />
 
@@ -72,10 +73,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="No file selected"
-                    android:textAppearance="?attr/textAppearanceBodyLarge"
                     android:ellipsize="middle"
-                    android:singleLine="true" />
+                    android:singleLine="true"
+                    android:text="No file selected — tap 'Choose File' below"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
 
                 <TextView
                     android:id="@+id/txt_file_size"
@@ -86,14 +87,6 @@
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?android:attr/textColorSecondary"
                     android:visibility="gone" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_select_file"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Choose Audio or Video File"
-                    app:icon="@android:drawable/ic_menu_search" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -120,6 +113,22 @@
                     android:text="Output Settings"
                     android:textAppearance="?attr/textAppearanceTitleMedium"
                     android:textStyle="bold" />
+
+                <!-- Output File Name Edit Text -->
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Output File Name">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/edt_output_file_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:singleLine="true" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <!-- Target Format -->
                 <com.google.android.material.textfield.TextInputLayout
@@ -295,38 +304,21 @@
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
 
                 <TextView
+                    android:id="@+id/txt_result_file_location"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Saved to Music/AudioCycle public storage."
+                    android:text="Saved to destination."
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?android:attr/textColorSecondary" />
 
-                <LinearLayout
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_view_file"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_play_result"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:layout_weight="1"
-                        android:text="Play Audio"
-                        app:icon="@android:drawable/ic_media_play" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_share_result"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:layout_weight="1"
-                        android:text="Share File"
-                        app:icon="@android:drawable/ic_menu_share" />
-                </LinearLayout>
+                    android:text="View File"
+                    app:icon="@android:drawable/ic_menu_view" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
